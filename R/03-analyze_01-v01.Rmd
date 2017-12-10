@@ -1,0 +1,487 @@
+
+
+
+```{r include = FALSE}
+knitr::opts_chunk$set(
+  echo = FALSE,
+  cache = TRUE,
+  fig.align = "center",
+  # width = 100,
+  warning = FALSE,
+  message = FALSE
+)
+
+
+# Need this if render script is not in same directory as project root.
+# knitr::opts_knit$set(root.dir = "O:/_other/projects/uil/")
+knitr::opts_knit$set(root.dir = rprojroot::find_root("uil.Rproj"))
+
+options(scipen = 1, digits = 2)
+
+# Comment these lines out if calling this script with parameters.
+# rm(list = ls())
+```
+
+
+
+
+```{r include = FALSE}
+load("R/analyze_00.RData")
+```
+
+
+
+
+
+```{r include = FALSE}
+# Analyze. ----
+```
+
+
+
+# Analysis
+
+With this knowledge in mind, let's take begin with "basic" analysis, and
+work our way towards nddressing more specific questions.
+
+
+
+```{r include = FALSE}
+# analysis_complvl ----
+```
+
+
+## "Competition Level" Analysis
+
+### Which _districts, regions, and conferences_ have the most _distinct schools_? [^fn_competition_groupings]
+
+[^fn_competition_groupings]:
+As a technical note, districts, regions, and conferences are not all of the same "type"
+in the data. Rather,
+`District` and `Region` are classified as disticnt factors in the `complvl`
+column (along with `State`) and conferences are
+classified in their own `conf` column. Nevertheless, for the purpose of exploration,
+these diferent "competition groupings" each stratify the sample population in some manner.
+
+
+```{r results = "hide"}
+rank_and_arrange <-
+  function(d,
+           colname_cnt_char = "cnt",
+           colname_rank_char = "rank") {
+    colname_cnt_quo <- rlang::sym(colname_cnt_char)
+    colname_rank_quo <- rlang::sym(colname_rank_char)
+    d %>%
+      mutate(!!colname_rank_quo := row_number(desc(!!colname_cnt_quo))) %>%
+      arrange(!!colname_rank_quo)
+  }
+
+compute_cnt_bycomplvl <- function(complvls = complvls_valid) {
+  schools_all %>%
+    filter(complvl %in% complvls) %>%
+    group_by(year, complvl_num) %>%
+    distinct(year, complvl_num, school) %>%
+    summarise(cnt = n()) %>%
+    ungroup() %>%
+    group_by(complvl_num) %>%
+    summarise(cnt = mean(cnt)) %>%
+    ungroup() %>%
+    rank_and_arrange()
+  # mutate(rank = row_number(desc(cnt))) %>%
+  # arrange(rank)
+}
+cnt_bycomplvl_district <- compute_cnt_bycomplvl("District")
+cnt_bycomplvl_region <- compute_cnt_bycomplvl("Region")
+
+cnt_bycomplvl_byconf <-
+  schools_all %>%
+  distinct(year, conf, school) %>%
+  group_by(year, conf) %>%
+  summarise(cnt = n()) %>%
+  ungroup() %>%
+  group_by(conf) %>%
+  summarise(cnt = mean(cnt)) %>%
+  ungroup() %>%
+  rank_and_arrange()
+```
+
+
+
+
+
+```{r fig.show = "hide"}
+labs_cnt_byx <-
+  labs(x = NULL, y = NULL)
+theme_cnt_byx <-
+  theme(# panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank()) +
+  theme(legend.position = "none")
+
+visualize_cnt_byx <-
+  function(d,
+           x_char = "complvl_num",
+           subtitle_suffix = "") {
+    d %>%
+      ggplot(aes_string(x = x_char, y = "cnt")) +
+      geom_point(aes(size = desc(rank))) +
+      # scale_color_distiller(palette = "Reds") +
+      # hrbrthemes::scale_color_ipsum() +
+      scale_y_continuous(breaks = scales::pretty_breaks()) +
+      labs(title = "Count of Schools",
+           subtitle = str_c("By ", subtitle_suffix)) +
+      labs_cnt_byx +
+      theme_cnt_byx
+  }
+
+viz_cnt_bycomplvl_district <-
+  cnt_bycomplvl_district %>%
+  visualize_cnt_byx(x_char = "complvl_num", subtitle_suffix = "District")
+viz_cnt_bycomplvl_district
+
+viz_cnt_bycomplvl_region <-
+  cnt_bycomplvl_region %>%
+  visualize_cnt_byx(x_char = "complvl_num", subtitle_suffix = "Region")
+viz_cnt_bycomplvl_region
+
+viz_cnt_bycomplvl_byconf <-
+  cnt_bycomplvl_byconf %>%
+  visualize_cnt_byx(x_char = "conf", subtitle_suffix = "Conference")
+viz_cnt_bycomplvl_byconf
+```
+
+
+
+
+
+```{r include = FALSE}
+# {viz_cnt_bycomplvl_district + viz_cnt_bycomplvl_region} / viz_cnt_bycomplvl_byconf + plot_layout(ncol = 1)
+```
+
+
+
+
+
+```{r }
+# bookmark ----
+viz_cnt_bycomplvl_grid <-
+  arrangeGrob(
+    viz_cnt_bycomplvl_district,
+    viz_cnt_bycomplvl_region + labs(title = NULL),
+    viz_cnt_bycomplvl_byconf + labs(title = NULL),
+    ncol = 2,
+    nrow = 2,
+    # top = textGrob("Count of Schools", gp = gpar(fontsize = 14, family = "text", font = 2),
+    layout_matrix = rbind(c(1, 1), c(2, 3))
+  )
+grid.arrange(viz_cnt_bycomplvl_grid)
+save_viz(viz_cnt_bycomplvl_grid)
+```
+
+
+It seems fair to say that the distribution of schools among districts/regions/conferences
+is relatively even. This is to be expected since the UIL (presumably)
+tries to divide schools evenly among each grouping (to the extent possible) in
+order to stimulate fair competition.
+
+### Which competition types have the most individual competitors and distinct schools?
+
+
+```{r results = "hide"}
+compute_cnt_bycomp_byx <- function(d) {
+  d %>%
+    group_by(year, comp) %>%
+    summarise(cnt = n()) %>%
+    ungroup() %>%
+    group_by(comp) %>%
+    summarise(cnt = mean(cnt)) %>%
+    ungroup() %>%
+    rank_and_arrange()
+}
+cnt_bycomp_byperson <- persons_all %>% compute_cnt_bycomp_byx()
+cnt_bycomp_byschool <- schools_all %>% compute_cnt_bycomp_byx()
+```
+
+
+
+
+
+```{r fig.show = "hide"}
+lab_persons <- "Individual Competitors"
+lab_schools <- "Distinct Schools"
+visualize_cnt_bycomp_byx_base <-
+  function(d,
+           x_char = "comp",
+           color_char = x_char,
+           title_suffix = "",
+           lab_subtitle = "By Competition Type") {
+    d %>%
+      ggplot(aes_string(x = x_char, y = "cnt")) +
+      geom_point(aes_string(color = color_char), size = 4) +
+      # geom_point(aes(color = comp, size = desc(rank))) +
+      # scale_radius(range = c(3, 7)) +
+      scale_x_discrete(labels = scales::wrap_format(width_xy_wrap)) +
+      scale_y_continuous(breaks = scales::pretty_breaks()) +
+      labs(title = str_c("Count of ", title_suffix),
+           subtitle = lab_subtitle) +
+      labs_cnt_byx +
+      theme_cnt_byx
+  }
+
+
+visualize_cnt_bycomp_byx <- function(d, title_suffix = "") {
+  d %>%
+    visualize_cnt_bycomp_byx_base(x_char = "comp",
+                                  title_suffix = title_suffix,
+                                  lab_subtitle = "By Competition Type")
+
+}
+
+viz_cnt_bycomp_byperson <-
+  cnt_bycomp_byperson %>%
+  visualize_cnt_bycomp_byx(title_suffix = lab_persons)
+viz_cnt_bycomp_byperson
+
+viz_cnt_bycomp_byschool <-
+  cnt_bycomp_byschool %>%
+  visualize_cnt_bycomp_byx(title_suffix = lab_schools)
+viz_cnt_bycomp_byschool
+```
+
+
+
+
+
+```{r }
+viz_cnt_comp_byx_grid <-
+  arrangeGrob(
+  viz_cnt_bycomp_byperson + labs(subtitle = NULL),
+  viz_cnt_bycomp_byschool + labs(subtitle = NULL),
+  nrow = 2
+)
+grid.arrange(viz_cnt_comp_byx_grid)
+save_viz(viz_cnt_comp_byx_grid)
+```
+
+
+####  ... at _each competition level_?
+
+
+```{r results = "hide"}
+compute_cnt_bycomp_byx_bycomplvl <- function(d) {
+  d %>%
+    group_by(year, complvl, comp) %>%
+    summarise(cnt = n()) %>%
+    ungroup() %>%
+    group_by(complvl, comp) %>%
+    summarise(cnt = mean(cnt)) %>%
+    ungroup() %>%
+    group_by(complvl) %>%
+    mutate(rank = row_number(desc(cnt))) %>%
+    ungroup() %>%
+    arrange(complvl, rank)
+}
+cnt_bycomp_byperson_bycomplvl <-
+  persons_all %>% compute_cnt_bycomp_byx_bycomplvl()
+cnt_bycomp_byschool_bycomplvl <-
+  schools_all %>% compute_cnt_bycomp_byx_bycomplvl()
+```
+
+
+
+
+
+```{r fig.show = "hide"}
+visualize_cnt_bycomp_byx_bycomplvl <-
+  function(d, title_suffix = "") {
+    d %>%
+      visualize_cnt_bycomp_byx_base(x_char = "comp",
+                                    title_suffix = title_suffix,
+                                    lab_subtitle = "By Competition Type and Competition Level") +
+      facet_grid(complvl ~ .,
+                 scales = "free",
+                 labeller = label_wrap_gen(width = width_xy_wrap))
+  }
+viz_cnt_bycomp_byperson_bycomplvl <-
+  cnt_bycomp_byperson_bycomplvl %>%
+  visualize_cnt_bycomp_byx_bycomplvl(title_suffix = lab_persons)
+viz_cnt_bycomp_byperson_bycomplvl
+
+viz_cnt_bycomp_byschool_bycomplvl <-
+  cnt_bycomp_byschool_bycomplvl %>%
+  visualize_cnt_bycomp_byx_bycomplvl(title_suffix = lab_schools)
+viz_cnt_bycomp_byschool_bycomplvl
+```
+
+
+
+
+
+```{r }
+viz_cnt_bycomp_byx_bycomplvl_grid <-
+  arrangeGrob(
+    viz_cnt_bycomp_byperson_bycomplvl + labs(subtitle = NULL),
+    viz_cnt_bycomp_byschool_bycomplvl + labs(subtitle = NULL),
+    nrow = 2
+  )
+grid.arrange(viz_cnt_bycomp_byx_bycomplvl_grid)
+save_viz(viz_cnt_bycomp_byx_bycomplvl_grid)
+```
+
+
+#### ... in _each conference_?
+
+
+```{r results = "hide"}
+compute_cnt_bycomp_byx_bycomplvl_byconf <- function(d) {
+  d %>%
+    group_by(year, complvl, comp, conf) %>%
+    summarise(cnt = n()) %>%
+    ungroup() %>%
+    group_by(complvl, comp, conf) %>%
+    summarise(cnt = mean(cnt)) %>%
+    ungroup() %>%
+    group_by(complvl, comp) %>%
+    mutate(rank = row_number(desc(cnt))) %>%
+    ungroup() %>%
+    arrange(comp, complvl, rank)
+}
+
+cnt_bycomp_byperson_bycomplvl_byconf <-
+  persons_all %>%
+  compute_cnt_bycomp_byx_bycomplvl_byconf()
+cnt_bycomp_byschool_bycomplvl_byconf <-
+  schools_all %>%
+  compute_cnt_bycomp_byx_bycomplvl_byconf()
+```
+
+
+
+
+
+```{r }
+visualize_cnt_bycomp_byx_bycomplvl_byconf <-
+  function(d, title_suffix = "") {
+    d %>%
+      visualize_cnt_bycomp_byx_base(
+        x_char = "conf",
+        color_char = "comp",
+        title_suffix = title_suffix,
+        lab_subtitle = "By Competition Type, Competition Level, and Conference"
+      ) +
+      facet_grid(complvl ~ comp,
+                 scales = "free",
+                 labeller = label_wrap_gen(width = width_xy_wrap))
+    # facet_grid(comp ~ complvl, scales = "free", labeller = label_wrap_gen(width = width_xy_wrap))
+  }
+viz_cnt_bycomp_byperson_bycomplvl_byconf <-
+  cnt_bycomp_byperson_bycomplvl_byconf %>%
+  visualize_cnt_bycomp_byx_bycomplvl_byconf(title_suffix = lab_persons)
+viz_cnt_bycomp_byperson_bycomplvl_byconf
+save_viz(viz_cnt_bycomp_byperson_bycomplvl_byconf)
+
+viz_cnt_bycomp_byschool_bycomplvl_byconf <-
+  cnt_bycomp_byschool_bycomplvl_byconf %>%
+  visualize_cnt_bycomp_byx_bycomplvl_byconf(title_suffix = lab_schools)
+viz_cnt_bycomp_byschool_bycomplvl_byconf
+save_viz(viz_cnt_bycomp_byschool_bycomplvl_byconf)
+```
+
+
+Just by inspection, science appears to be the answer to the numerous
+variations of the "Which competition type/level has the most ...?" question.
+
+### Which competition levels have the most distinct schools in _each conference_?
+
+
+```{r results = "hide"}
+aggregate_cnt_bycomp_byx_bycomplvl_byconf <- function(d) {
+  d %>%
+    group_by(complvl, conf) %>%
+    # summarise(rank = mean(rank)) %>%
+    summarise(cnt = mean(cnt)) %>%
+    ungroup() %>%
+    group_by(complvl) %>%
+    mutate(rank = row_number(desc(cnt))) %>%
+    arrange(complvl, rank)
+}
+# cnt_byperson_bycomplvl_byconf <-
+#   cnt_bycomp_byperson_bycomplvl_byconf %>%
+#   aggregate_cnt_bycomp_byx_bycomplvl_byconf()
+
+cnt_byschool_bycomplvl_byconf <-
+  cnt_bycomp_byschool_bycomplvl_byconf %>%
+  aggregate_cnt_bycomp_byx_bycomplvl_byconf()
+```
+
+
+
+
+
+```{r }
+visualize_cnt_byx_bycomplvl_byconf <-
+  function(d, title_suffix = "") {
+    d %>%
+      visualize_cnt_bycomp_byx_base(
+        x_char = "conf",
+        color_char = NULL,
+        title_suffix = title_suffix,
+        lab_subtitle = "By Competition Level and Conference"
+      ) +
+      facet_grid(. ~ complvl,
+                 scales = "free",
+                 labeller = label_wrap_gen(width = width_xy_wrap))
+  }
+# viz_cnt_byperson_bycomplvl_byconf <-
+#   cnt_byperson_bycomplvl_byconf %>%
+#   visualize_cnt_byx_bycomplvl_byconf(title_suffix = lab_persons)
+# viz_cnt_byperson_bycomplvl_byconf
+
+viz_cnt_byschool_bycomplvl_byconf <-
+  cnt_byschool_bycomplvl_byconf %>%
+  visualize_cnt_byx_bycomplvl_byconf(title_suffix = lab_schools)
+viz_cnt_byschool_bycomplvl_byconf
+save_viz(viz_cnt_byschool_bycomplvl_byconf)
+```
+
+
+Note the difference in this "Which has the most ...?" question--here, we
+are aggregating over different competition types, whereas previously we had
+distinguished between each).
+
+
+```{r include = FALSE}
+# # Attempt to make a NSE version that combines the functionality of the previous two functions.
+# compute_cnt_bycomp_byx_nse <- function(d, complvls = complvls_valid, ...){
+#   group_1_vars_quos <- rlang::quos(...)
+#   # group_1_vars_quos <- quos(group_1_vars_quos)
+#   # group_1_vars_quos <- rlang::quos(year, complvl, comp_shortname, comp, conf)
+#
+#   group_2_vars_quos <- setdiff(rlang::quo_name(group_1_vars_quos), "year")
+#   # group_2_vars_quos <- rlang::quos(complvl, comp_shortname, comp, conf)
+#   group_3_vars_quos <- rlang::quos(complvl, conf)
+#   d %>%
+#     filter(complvl %in% complvls) %>%
+#     group_by(!!!group_1_vars_quos) %>%
+#     summarise(cnt = n()) %>%
+#     ungroup() %>%
+#     group_by(!!!group_2_vars_quos) %>%
+#     summarise(cnt = mean(cnt)) %>%
+#     ungroup() %>%
+#     group_by(!!!group_3_vars_quos) %>%
+#     mutate(rank = row_number(desc(cnt))) %>%
+#     arrange(rank)
+# }
+```
+
+
+
+
+
+
+```{r include = FALSE}
+session::save.session("R/analyze_01.RData")
+```
+
+
+
+
