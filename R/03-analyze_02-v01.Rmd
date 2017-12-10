@@ -224,7 +224,7 @@ viz_comp_stats_bycomplvl
 viz_comp_stats_byx_grid <-
   arrangeGrob(
     viz_comp_stats_byyear,
-    viz_comp_stats_bycomplvl,
+    viz_comp_stats_bycomplvl + labs(title = ""),
     ncol = 2
   )
 grid.arrange(viz_comp_stats_byx_grid)

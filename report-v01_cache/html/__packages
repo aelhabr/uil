@@ -5,3 +5,5 @@ tidyr
 ggplot2
 gridExtra
 bindrcpp
+xtable
+printr

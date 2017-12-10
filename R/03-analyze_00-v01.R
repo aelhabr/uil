@@ -31,6 +31,8 @@ library("tidyr")
 library("ggplot2")
 library("grid")
 library("gridExtra")
+library("printr")
+
 
 theme_set(theme_minimal())
 

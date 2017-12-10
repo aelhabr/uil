@@ -1,5 +1,5 @@
 #' ---
-#' title: "Exploring Texas school Academic UIL Competition Results"
+#' title: "Exploring Texas High School Academic UIL Competition Results"
 #' author: "Tony"
 #' output:
 #'  html_document:

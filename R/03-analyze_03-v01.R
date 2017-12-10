@@ -44,12 +44,12 @@ comp_stats_byperson <-
   group_by(name, school, conf) %>%
   summarise(cnt = n()) %>%
   ungroup() %>%
-  rank_and_arrange()
+  rank_and_arrange("cnt")
 comp_stats_byperson
 #'
 #'
 #'
-knitr::kable(comp_stats_byperson %>% slice(1:10))
+comp_stats_byperson %>% slice(1:10)
 
 #'
 #' There's not too much to "learn" from this ranking by simple count of
@@ -71,12 +71,12 @@ comps_stats_byperson_top_byconf <-
   # distinct(name, school) %>%
   summarise(cnt = n()) %>%
   ungroup() %>%
-  rank_and_arrange()
+  rank_and_arrange("cnt")
 comps_stats_byperson_top_byconf
 #'
 #'
 #'
-knitr::kable(comps_stats_byperson_top_byconf)
+comps_stats_byperson_top_byconf
 
 #'
 #' What stands out here is that there doesn't seem to be as many individual
@@ -117,14 +117,15 @@ comp_stats_byperson_2 <-
   summarise_at(vars(prank, defeat_cnt), funs(mean = mean, sum = sum)) %>%
   ungroup() %>%
   mutate(rank = row_number(desc(prank_sum))) %>%
-  arrange(rank)
+  arrange(rank) %>%
+  select(rank, everything())
 comp_stats_byperson_2
 comp_stats_byperson_2 %>%
   filter(name %in% c("Elhabr, Anthony", "Elhabr, Andrew"))
 #'
 #'
 #'
-knitr::kable(comp_stats_byperson_2 %>% slice(1:10))
+comp_stats_byperson_2 %>% slice(1:10)
 
 #'
 #' Somewhat suprisingly, some of the same individuals from the raw "counts" ranking
@@ -209,7 +210,7 @@ viz_comp_stats_byperson_byschool <-
   labs(
     title = "Individual Score vs. Score of Team",
     caption = str_c(
-      "Red emphasizes top", sprintf("%d2", 100 * top_pct), "% of individuals who \"carried\"."
+      str_to_title(color_neutral_2), " emphasizes top", sprintf("%d", 100 * top_pct), "% of individuals who \"carried\"."
     ),
     x = NULL,
     y = NULL
@@ -284,13 +285,16 @@ siblings_cnt <-
   summarise(cnt = n()) %>%
   ungroup() %>%
   distinct(name_last, cnt, .keep_all = TRUE) %>%
-  mutate(rank = row_number(desc(cnt))) %>%
-  arrange(rank)
+  rank_and_arrange("cnt")
 siblings_cnt
 
 siblings_cnt_elhabr <-
   siblings_cnt %>%
   filter(name_last == "Elhabr")
+#'
+#'
+#'
+siblings_cnt %>% slice(1:10)
 
 #'
 #' I was dissapointed to find that my brother and I were not at
@@ -298,7 +302,7 @@ siblings_cnt_elhabr <-
 #' rank `r siblings_cnt_elhabr$rank`, having competed in
 #' `r siblings_cnt_elhabr$cnt` competitions together).
 #'
-#' ### Which siblingswere the most "dominant"?
+#' ### Which siblings were the most "dominant"?
 #'
 #+ results = "hide"
 colnames_select <-
@@ -317,12 +321,17 @@ siblings_prank_sum <-
   ungroup() %>%
   distinct(name_last, sum, .keep_all = TRUE) %>%
   mutate(rank = row_number(desc(sum))) %>%
-  arrange(rank)
+  arrange(rank) %>%
+  select(rank, everything())
 siblings_prank_sum
 
 siblings_prank_sum_elhabr <-
   siblings_prank_sum %>%
   filter(name_last == "Elhabr")
+#'
+#'
+#'
+siblings_prank_sum %>% slice(1:10)
 
 #'
 #' It looks like these rankings are fairly similar. My brother and I
@@ -339,17 +348,22 @@ siblings_prank_sum_elhabr <-
 comp_rank_byschool_byperson <-
   persons_all %>%
   group_by(school, name) %>%
-  summarise_at(vars(prank, defeat_cnt), funs(cnt = n(), sum, mean)) %>%
-  select(-prank_cnt) %>%
-  rename(num_comps = defeat_cnt_cnt) %>%
-  mutate(rank = row_number(desc(prank_sum))) %>%
-  ungroup()
+  summarise(
+    cnt = n(),
+    prank_sum = sum(prank),
+    prank_mean = mean(prank),
+    defeat_cnt = sum(defeat_cnt)
+  ) %>%
+  ungroup() %>%
+  rank_and_arrange("prank_sum")
 
 comp_rank_byschool_byperson_clemens <-
   comp_rank_byschool_byperson %>%
-  filter(school == "Clemens") %>%
-  select(rank, -school, everything()) %>%
-  arrange(rank)
+  filter(school == "Clemens")
+#'
+#'
+#'
+comp_rank_byschool_byperson_clemens %>% select(-school) %>%  slice(1:10)
 
 #'
 #' Ranking by `prank_sum`,
@@ -358,12 +372,12 @@ comp_rank_byschool_byperson_clemens <-
 #'
 #' ### How has my school performed over time?
 #'
+#+ results = "hide"
 comp_rank_byschool_byyear <-
   schools_all %>%
   mutate(state_cnt = ifelse(complvl == "regional" &
                               advanced == TRUE, TRUE, FALSE)) %>%
   group_by(school, year) %>%
-  # summarise_at(vars(prank, defeat_cnt, win, advanced), funs(cnt = n(), sum, mean)) %>%
   summarise(
     prank_sum = sum(prank),
     prank_mean = mean(prank),
@@ -371,13 +385,16 @@ comp_rank_byschool_byyear <-
     advanced_cnt = sum(advanced),
     state_cnt = sum(state_cnt)
   ) %>%
-  mutate(rank = row_number(desc(prank_sum))) %>%
-  ungroup()
+  ungroup() %>%
+  rank_and_arrange("prank_sum")
 
-comp_rank_byschool_byyear %>%
-  filter(school == "Clemens") %>%
-  select(rank, everything()) %>%
-  arrange(rank)
+comp_rank_byschool_byyear_clemens <-
+  comp_rank_byschool_byyear %>%
+  filter(school == "Clemens")
+#'
+#'
+#'
+comp_rank_byschool_byyear_clemens %>% select(-school)
 
 #'
 #' Judging by `prank_sum`, it doesn't look like my
@@ -402,15 +419,11 @@ comp_rank_byschool <-
     advanced_cnt = sum(advanced),
     state_cnt = sum(state_cnt)
   ) %>%
+  ungroup() %>%
   # mutate(rank = row_number(desc(prank_sum))) %>%
-  mutate_if(is.numeric, funs(rank = row_number(desc(.)))) %>%
-  mutate(rank = prank_sum_rank) %>%
-  ungroup()
-
-comp_rank_byschool <-
-  comp_rank_byschool %>%
-  select(rank, everything()) %>%
-  arrange(rank)
+  # mutate_if(starts_with("prank"), funs(rank = row_number(desc(.)))) %>%
+  # mutate(rank = prank_sum_rank)
+  rank_and_arrange("prank_sum")
 
 comp_rank_byschool_clemens <-
   comp_rank_byschool %>% filter(school == "Clemens")
@@ -418,7 +431,7 @@ comp_rank_byschool_clemens <-
 #'
 #'
 #'
-knitr::kable(comp_rank_byschool %>% slice(1:10))
+comp_rank_byschool %>% slice(1:10)
 
 #'
 #' I didn't expect to see my school among the most "dominant" schools. Nevertheless,

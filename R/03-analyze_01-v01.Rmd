@@ -67,13 +67,14 @@ these diferent "competition groupings" each stratify the sample population in so
 ```{r results = "hide"}
 rank_and_arrange <-
   function(d,
-           colname_cnt_char = "cnt",
+           colname_val_char = "cnt",
            colname_rank_char = "rank") {
-    colname_cnt_quo <- rlang::sym(colname_cnt_char)
+    colname_val_quo <- rlang::sym(colname_val_char)
     colname_rank_quo <- rlang::sym(colname_rank_char)
     d %>%
-      mutate(!!colname_rank_quo := row_number(desc(!!colname_cnt_quo))) %>%
-      arrange(!!colname_rank_quo)
+      mutate(!!colname_rank_quo := row_number(desc(!!colname_val_quo))) %>%
+      arrange(!!colname_rank_quo) %>%
+      select(!!colname_rank_quo, everything())
   }
 
 compute_cnt_bycomplvl <- function(complvls = complvls_valid) {
@@ -123,7 +124,8 @@ visualize_cnt_byx <-
            subtitle_suffix = "") {
     d %>%
       ggplot(aes_string(x = x_char, y = "cnt")) +
-      geom_point(aes(size = desc(rank))) +
+      # Coluld make color an optional input.
+      geom_point(aes(size = desc(rank)), color = color_neutral_1) +
       # scale_color_distiller(palette = "Reds") +
       # hrbrthemes::scale_color_ipsum() +
       scale_y_continuous(breaks = scales::pretty_breaks()) +
@@ -321,7 +323,7 @@ viz_cnt_bycomp_byx_bycomplvl_grid <-
   arrangeGrob(
     viz_cnt_bycomp_byperson_bycomplvl + labs(subtitle = NULL),
     viz_cnt_bycomp_byschool_bycomplvl + labs(subtitle = NULL),
-    nrow = 2
+    ncol = 2
   )
 grid.arrange(viz_cnt_bycomp_byx_bycomplvl_grid)
 save_viz(viz_cnt_bycomp_byx_bycomplvl_grid)
@@ -390,63 +392,6 @@ save_viz(viz_cnt_bycomp_byschool_bycomplvl_byconf)
 Just by inspection, science appears to be the answer to the numerous
 variations of the "Which competition type/level has the most ...?" question.
 
-### Which competition levels have the most distinct schools in _each conference_?
-
-
-```{r results = "hide"}
-aggregate_cnt_bycomp_byx_bycomplvl_byconf <- function(d) {
-  d %>%
-    group_by(complvl, conf) %>%
-    # summarise(rank = mean(rank)) %>%
-    summarise(cnt = mean(cnt)) %>%
-    ungroup() %>%
-    group_by(complvl) %>%
-    mutate(rank = row_number(desc(cnt))) %>%
-    arrange(complvl, rank)
-}
-# cnt_byperson_bycomplvl_byconf <-
-#   cnt_bycomp_byperson_bycomplvl_byconf %>%
-#   aggregate_cnt_bycomp_byx_bycomplvl_byconf()
-
-cnt_byschool_bycomplvl_byconf <-
-  cnt_bycomp_byschool_bycomplvl_byconf %>%
-  aggregate_cnt_bycomp_byx_bycomplvl_byconf()
-```
-
-
-
-
-
-```{r }
-visualize_cnt_byx_bycomplvl_byconf <-
-  function(d, title_suffix = "") {
-    d %>%
-      visualize_cnt_bycomp_byx_base(
-        x_char = "conf",
-        color_char = NULL,
-        title_suffix = title_suffix,
-        lab_subtitle = "By Competition Level and Conference"
-      ) +
-      facet_grid(. ~ complvl,
-                 scales = "free",
-                 labeller = label_wrap_gen(width = width_xy_wrap))
-  }
-# viz_cnt_byperson_bycomplvl_byconf <-
-#   cnt_byperson_bycomplvl_byconf %>%
-#   visualize_cnt_byx_bycomplvl_byconf(title_suffix = lab_persons)
-# viz_cnt_byperson_bycomplvl_byconf
-
-viz_cnt_byschool_bycomplvl_byconf <-
-  cnt_byschool_bycomplvl_byconf %>%
-  visualize_cnt_byx_bycomplvl_byconf(title_suffix = lab_schools)
-viz_cnt_byschool_bycomplvl_byconf
-save_viz(viz_cnt_byschool_bycomplvl_byconf)
-```
-
-
-Note the difference in this "Which has the most ...?" question--here, we
-are aggregating over different competition types, whereas previously we had
-distinguished between each).
 
 
 ```{r include = FALSE}

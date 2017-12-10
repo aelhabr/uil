@@ -11,7 +11,7 @@ filename_script_suffix <- "-v01"
 # filepath_script <- paste0(dir_script, filename_script, ".R")
 
 # filename_output <- filename_script
-dir_output <- "../"
+dir_output <- ""
 filename_output <- "report"
 filepath_output_ext <- ".html"
 filepath_output <- paste0(dir_output, filename_output, filepath_output_ext)
@@ -67,7 +67,7 @@ if (render == TRUE) {
     # This won't work if rm(list = ls()) is called in the .R script.
     if (render_backup == TRUE) {
       # if(file.exists(filepath_output)) {
-      filepath_output_backup <- gsub(filepath_output_ext, paste0("_", timestamp_now, filepath_output_ext), filepath_report)
+      filepath_output_backup <- gsub(filepath_output_ext, paste0("_", timestamp_backup, filepath_output_ext), filepath_output)
       # filepath_output_backup <- paste0(
       #   filename_report,
       #   "_",
