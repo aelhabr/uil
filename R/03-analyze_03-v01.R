@@ -23,7 +23,7 @@ options(scipen = 1, digits = 2)
 #'
 #'
 #+ include = FALSE
-load("R/analyze_02.RData")
+session::restore.session("R/analyze_02.RData")
 
 #'
 #'

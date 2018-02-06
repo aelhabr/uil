@@ -23,7 +23,7 @@ options(scipen = 1, digits = 2)
 #'
 #'
 #+ include = FALSE
-load("R/analyze_00.RData")
+session::restore.session("R/analyze_00.RData")
 
 #'
 #'
@@ -68,6 +68,18 @@ rank_and_arrange <-
       select(!!colname_rank_quo, everything())
   }
 
+rank_and_arrange_nse <-
+  function(d,
+           colname_val_bare,
+           colname_rank_bare) {
+    colname_val_quo <- rlang::enquo(colname_val_bare)
+    colname_rank_quo <- rlang::enquo(colname_rank_bare)
+    d %>%
+      mutate(!!colname_rank_quo := row_number(desc(!!colname_val_quo))) %>%
+      arrange(!!colname_rank_quo) %>%
+      select(!!colname_rank_quo, everything())
+  }
+
 compute_cnt_bycomplvl <- function(complvls = complvls_valid) {
   schools_all %>%
     filter(complvl %in% complvls) %>%
@@ -79,8 +91,7 @@ compute_cnt_bycomplvl <- function(complvls = complvls_valid) {
     summarise(cnt = mean(cnt)) %>%
     ungroup() %>%
     rank_and_arrange()
-  # mutate(rank = row_number(desc(cnt))) %>%
-  # arrange(rank)
+    # rank_and_arrange_nse(cnt, rank)
 }
 cnt_bycomplvl_district <- compute_cnt_bycomplvl("District")
 cnt_bycomplvl_region <- compute_cnt_bycomplvl("Region")
